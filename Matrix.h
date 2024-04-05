@@ -52,7 +52,7 @@ public:
     }
 
     ~Matrix() {
-        free(array);
+        delete[] this->array;
     }
 
     static Matrix deserialize(std::istream &stream) {
