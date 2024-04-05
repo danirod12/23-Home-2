@@ -55,12 +55,12 @@ public:
         delete[] this->array;
     }
 
-    static Matrix deserialize(std::istream &stream) {
+    static Matrix<T> deserialize(std::istream &stream) {
         int columns, rows;
         stream >> rows;
         stream >> columns;
 
-        Matrix matrix(rows, columns);
+        Matrix<T> matrix(rows, columns);
         columns *= rows;
         for (int i = 0; i < columns; ++i) {
             stream >> matrix.array[i];
@@ -359,7 +359,7 @@ public:
      * @param originRow first row
      * @param targetRow second row
      */
-    void mutate(int originRow, int targetRow) {
+    void changeRows(int originRow, int targetRow) {
         this->requireRow(originRow);
         this->requireRow(targetRow);
 
@@ -379,7 +379,7 @@ public:
      * @param targetRow Row where we add first row
      * @param multiplier The multiplier
      */
-    void mutate(int originRow, int targetRow, T multiplier) {
+    void addRowToAnother(int originRow, int targetRow, T multiplier) {
         this->requireRow(originRow);
         this->requireRow(targetRow);
 
@@ -395,7 +395,7 @@ public:
      * @param row Row to be multiplier
      * @param multiplier The multiplier
      */
-    void mutate(int row, T multiplier) {
+    void multiplyRow(int row, T multiplier) {
         this->requireRow(row);
 
         int lastIndex = this->columns * (row + 1);

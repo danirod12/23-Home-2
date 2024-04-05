@@ -66,20 +66,20 @@ int main() {
 
     // Check elementary rows change
     std::cout << "Elementary (Change rows 1 and 3):" << std::endl;
-    matrix2.mutate(0, 2);
+    matrix2.changeRows(0, 2);
     std::cout << matrix2 << std::endl;
     assert(matrix2 == parse<double>("3 3\n5 6 2\n8 9 6\n3 4 5"));
     assert((matrix2 + matrix) == parse<double>("3 3\n6 6 2\n8 10 6\n3 4 6"));
 
     // Check elementary row append with other row
     std::cout << "Elementary (1 row -(*2)-> 2 row):" << std::endl;
-    matrix2.mutate(0, 1, 2);
+    matrix2.addRowToAnother(0, 1, 2);
     std::cout << matrix2 << std::endl;
     assert(matrix2 == parse<double>("3 3\n5 6 2\n18 21 10\n3 4 5"));
 
     // Check elementary row multiply
     std::cout << "Elementary (3 row *2):" << std::endl;
-    matrix2.mutate(2, 2.);
+    matrix2.multiplyRow(2, 2.);
     std::cout << matrix2 << std::endl;
     assert(matrix2 == parse<double>("3 3\n5 6 2\n18 21 10\n6 8 10"));
 
