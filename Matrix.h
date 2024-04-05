@@ -55,6 +55,19 @@ public:
         delete[] this->array;
     }
 
+    static Matrix<T> createZeroMatrix(int rows, int columns) {
+        Matrix<T> matrix(rows, columns);
+        return matrix;
+    }
+
+    static Matrix<T> createIdentityMatrix(int rows) {
+        Matrix<T> matrix(rows, rows);
+        for (int i = 0; i < rows; ++i) {
+            matrix.setValue(i, i, (T) 1);
+        }
+        return matrix;
+    }
+
     static Matrix<T> deserialize(std::istream &stream) {
         int columns, rows;
         stream >> rows;

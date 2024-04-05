@@ -42,6 +42,10 @@ Matrix<T> parse(const char *text) {
  * @author danirod12
  */
 int main() {
+    // Test static invokes
+    std::cout << Matrix<int>::createZeroMatrix(4, 6) << std::endl;
+    std::cout << Matrix<int>::createIdentityMatrix(4) << std::endl;
+
     // Check determinant logic (matrix was generated with determinant on site)
     // deserialize from file
     assert(read<double>("determinant").getDeterminant() == 135553263157621168.0);
