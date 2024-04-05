@@ -263,6 +263,19 @@ public:
         return *this + (-copy);
     }
 
+    Matrix<T> &operator=(const Matrix<T> &another) {
+        // self-assignment check
+        if (this == &another) {
+            return *this;
+        }
+
+        requireSameDimensions(another);
+        for (int i = 0; i < this->size; ++i) {
+            this->array[i] = another.array[i];
+        }
+        return *this;
+    }
+
     bool operator==(const Matrix<T> &another) const {
         if (this->size != another.size || this->columns != another.columns) {
             return false;
