@@ -2,41 +2,111 @@
 #define INC_23_HOME_1_MATRIX_H
 
 #include <iostream>
+#include <stdexcept>
+#include <vector>
 
+template <typename T>
 class Matrix {
 private:
     int columns;
     long size;
 
     // We store lines each after each. l - line, c - column [l1c1, l1c2, /* new line elements next */ l2c1, l2c2]
-    double *array;
+    T *array;
 
-    void requireSameDimensions(const Matrix &another) const;
+    void requireSameDimensions(const Matrix &another) const {
+        if (this->size != another.size || this->columns != another.columns) {
+            throw std::invalid_argument("Matrix is not compatible for operation");
+        }
+    }
 
-    void requireRow(int row) const;
+    void requireRow(int row) const {
+        if (row < 0 || row >= (this->size / this->columns)) {
+            throw std::invalid_argument("Matrix out of bounds");
+        }
+    }
 
-    void requireColumn(int column) const;
+    void requireColumn(int column) const {
+        if (column >= this->columns || column < 0) {
+            throw std::invalid_argument("Matrix out of bounds");
+        }
+    }
 
 public:
-    Matrix(int rows, int columns);
+    Matrix(int rows, int columns) {
+        this->array = new T[rows * columns];
+        this->columns = columns;
+        this->size = columns * rows;
 
-    explicit Matrix(std::istream &stream);
+        // reset memory after malloc
+        for (int i = 0; i < size; ++i) {
+            this->array[i] = (T) 0;
+        }
+    }
 
-    ~Matrix();
+    explicit Matrix(std::istream &stream) {
+        Matrix deserialized = deserialize(stream);
+        this->array = deserialized.array;
+        this->columns = deserialized.columns;
+        this->size = deserialized.size;
+    }
 
-    static Matrix deserialize(std::istream &stream);
+    ~Matrix() {
+        free(array);
+    }
 
-    static void serialize(std::ostream &stream, const Matrix &matrix);
+    static Matrix deserialize(std::istream &stream) {
+        int columns, rows;
+        stream >> rows;
+        stream >> columns;
 
-    friend std::ostream &operator<<(std::ostream &os, const Matrix &obj);
+        Matrix matrix(rows, columns);
+        columns *= rows;
+        for (int i = 0; i < columns; ++i) {
+            stream >> matrix.array[i];
+        }
+        return matrix;
+    }
 
-    [[nodiscard]] int getRows() const;
+    static void serialize(std::ostream &stream, const Matrix &matrix) {
+        for (int i = 0; i < matrix.getSize(); ++i) {
+            stream << matrix.getValue(i);
+            if ((i + 1) % matrix.getColumns() == 0) {
+                stream << std::endl;
+            } else {
+                stream << "\t";
+            }
+        }
+    }
 
-    [[nodiscard]] int getColumns() const;
+    friend std::ostream &operator<<(std::ostream &os, const Matrix &obj) {
+        Matrix::serialize(os, obj);
+        return os;
+    }
 
-    [[nodiscard]] int getSize() const;
+    friend std::istream &operator>>(std::istream &is, Matrix &obj) {
+        obj = Matrix::deserialize(is);
+        return is;
+    }
 
-    [[nodiscard]] int getInternalIndex(int row, int column) const;
+    [[nodiscard]] int getRows() const {
+        return this->size / this->columns;
+    }
+
+    [[nodiscard]] int getColumns() const {
+        return this->columns;
+    }
+
+    [[nodiscard]] int getSize() const {
+        return this->size;
+    }
+
+    [[nodiscard]] int getInternalIndex(int row, int column) const {
+        this->requireColumn(column);
+        this->requireRow(row);
+
+        return row * this->columns + column;
+    }
 
     /**
      * Force-insert value to matrix based on index. Index could be calculated by Matrix::getInternalIndex
@@ -44,9 +114,16 @@ public:
      * @param index Internal index calculated by Matrix::getInternalIndex
      * @param value The value
      */
-    void setValue(int index, double value);
+    void setValue(int index, T value) {
+        if (index < 0 || index >= this->size) {
+            throw std::invalid_argument("Matrix out of bounds");
+        }
+        this->array[index] = value;
+    }
 
-    void setValue(int row, int column, double value);
+    void setValue(int row, int column, T value) {
+        this->array[this->getInternalIndex(row, column)] = value;
+    }
 
     /**
      * Force-get value from matrix based on index. Index could be calculated by Matrix::getInternalIndex
@@ -54,15 +131,28 @@ public:
      * @param index Internal index calculated by Matrix::getInternalIndex
      * @param value The value
      */
-    [[nodiscard]] double getValue(int index) const;
+    [[nodiscard]] T getValue(int index) const {
+        if (index < 0 || index >= this->size) {
+            throw std::invalid_argument("Matrix out of bounds");
+        }
+        return this->array[index];
+    }
 
-    [[nodiscard]] double getValue(int row, int column) const;
+    [[nodiscard]] T getValue(int row, int column) const {
+        return this->array[this->getInternalIndex(row, column)];
+    }
 
     /**
      * Get a matrix copy for further changes
      * @return A matrix with same dimensions and same elements
      */
-    [[nodiscard]] Matrix clone() const;
+    [[nodiscard]] Matrix<T> clone() const {
+        Matrix<T> matrix(this->getRows(), this->columns);
+        for (int i = 0; i < this->size; ++i) {
+            matrix.array[i] = this->array[i];
+        }
+        return matrix;
+    }
 
     /**
      * Get a matrix minor for element
@@ -70,52 +160,205 @@ public:
      * @param column Removing column
      * @return
      */
-    [[nodiscard]] Matrix getMinor(int row, int column) const;
+    [[nodiscard]] Matrix<T> getMinor(int row, int column) const {
+        requireRow(row);
+        requireColumn(column);
+        if (this->size == this->columns || this->columns == 1) {
+            throw std::invalid_argument("Cannot extract minor from matrix of 1 dimension");
+        }
+
+        Matrix<T> matrix(this->getRows() - 1, this->columns - 1);
+        int jumpIndex = this->columns * row;
+        for (int i = 0, j = 0; i < matrix.size; ++i, ++j) {
+            // skip row that we do not need
+            if (j == jumpIndex) {
+                j += this->columns;
+            }
+            // skip column that we do not need
+            if ((j % this->columns) == column) {
+                // here we use i-- not j++ because we may want to jump from new row that we got
+                // (execute row skip check just here), it could be achieved if we forward j increment
+                // to for loop (for loop increment both i and j, so we decrement i)
+                i--;
+                continue;
+            }
+
+            matrix.array[i] = this->array[j];
+        }
+        return matrix;
+    }
 
     /**
      * Get determinate for cube matrix (Matrix::isSquare)
      * @return double determinant value
      * @throws invalid_argument if matrix is not cube
      */
-    double getDeterminant() const;
+    T getDeterminant() const { // NOLINT
+        if (!isSquare()) {
+            throw std::invalid_argument("Matrix is not cube");
+        }
+
+        if (this->size == 1) {
+            return this->array[0];
+        } else if (this->size == 4) {
+            return this->array[0] * this->array[3] - this->array[1] * this->array[2];
+        } else {
+            T value;
+            for (int i = 0; i < this->columns; ++i) {
+                if (this->array[i] != 0) {
+                    T middle = (i % 2 == 0 ? 1 : -1)
+                            * this->array[i] * this->getMinor(0, i).getDeterminant();
+                    if (i == 0) {
+                        value = middle;
+                    } else {
+                        value += middle;
+                    }
+                }
+            }
+            return value;
+        }
+    }
 
     /**
      * Get inverted matrix for current matrix
      * @return Matrix inverted ( Matrix^-1 )
      * @throws invalid_argument if matrix determinant is zero
      */
-    Matrix getInverted() const;
+    Matrix<T> getInverted() const {
+        double determinant = this->getDeterminant();
+        if (determinant == 0) {
+            throw std::invalid_argument("Matrix cannot be inverted");
+        }
 
-    bool isSquare() const;
+        int rows = this->getRows();
+        Matrix<T> additions(rows, this->columns);
+        for (int i = 0; i < rows; ++i) {
+            for (int j = 0; j < additions.columns; ++j) {
+                additions.setValue(i, j, ((i + j) % 2 == 0 ? 1 : -1)
+                                         * this->getMinor(i, j).getDeterminant());
+            }
+        }
+        return additions.transposed() / determinant;
+    }
 
-    Matrix operator+(const Matrix &another) const;
+    bool isSquare() const {
+        return this->columns * this->columns == this->size;
+    }
 
-    Matrix operator-() const;
+    Matrix<T> operator+(const Matrix<T> &another) const {
+        this->requireSameDimensions(another);
+        Matrix<T> matrix(this->getRows(), this->columns);
+        for (int i = 0; i < this->size; ++i) {
+            matrix.array[i] = this->array[i] + another.array[i];
+        }
+        return matrix;
+    }
 
-    Matrix operator-(const Matrix &another) const;
+    Matrix<T> operator-() const {
+        return (*this) * ((T) -1);
+    }
 
-    bool operator==(const Matrix &another) const;
+    Matrix<T> operator-(const Matrix<T> &another) const {
+        Matrix<T> copy = another.clone();
+        return *this + (-copy);
+    }
 
-    bool operator!=(const Matrix &another) const;
+    bool operator==(const Matrix<T> &another) const {
+        if (this->size != another.size || this->columns != another.columns) {
+            return false;
+        }
 
-    bool operator==(const double &number) const;
+        for (int i = 0; i < this->size; ++i) {
+            if (another.array[i] != this->array[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
 
-    bool operator!=(const double &number) const;
+    bool operator!=(const Matrix<T> &another) const {
+        return !(*this == another);
+    }
 
-    Matrix operator*(const Matrix &another) const;
+    bool operator==(const T &number) const {
+        if (!this->isSquare()) {
+            return false;
+        }
 
-    Matrix operator*(const double &another) const;
+        for (int i = 0; i < this->size; ++i) {
+            if ((i / columns == i % columns ? number : 0) != this->array[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
 
-    Matrix operator/(const double &another) const;
+    bool operator!=(const T &number) const {
+        return !(*this == number);
+    }
 
-    Matrix operator!() const;
+    Matrix<T> operator*(const Matrix<T> &another) const {
+        if (this->columns != another.getRows()) {
+            throw std::invalid_argument("Matrix cannot be multiplied (col1 != row2)");
+        }
+
+        Matrix<T> matrix(this->getRows(), another.columns);
+        for (int i = 0; i < matrix.getSize(); ++i) {
+            int column = i % matrix.columns;
+            int row = i / matrix.columns;
+
+            T value;
+            for (int j = 0; j < this->columns; ++j) {
+                T middle = this->getValue(row, j) * another.getValue(j, column);
+                if (j == 0) {
+                    value = middle;
+                } else {
+                    value += middle;
+                }
+            }
+            matrix.array[i] = value;
+        }
+        return matrix;
+    }
+
+    Matrix<T> operator*(const T &another) const {
+        Matrix<T> matrix(this->getRows(), this->columns);
+        for (int i = 0; i < this->size; ++i) {
+            matrix.array[i] = this->array[i] * another;
+        }
+        return matrix;
+    }
+
+    Matrix<T> operator/(const T &another) const {
+        Matrix<T> matrix(this->getRows(), this->columns);
+        for (int i = 0; i < this->size; ++i) {
+            matrix.array[i] = this->array[i] / another;
+        }
+        return matrix;
+    }
+
+    Matrix operator!() const {
+        return this->getInverted();
+    }
 
     /**
      * Change rows for current matrix
      * @param originRow first row
      * @param targetRow second row
      */
-    void mutate(int originRow, int targetRow);
+    void mutate(int originRow, int targetRow) {
+        this->requireRow(originRow);
+        this->requireRow(targetRow);
+
+        int lastIndex = this->columns * (originRow + 1);
+        int offsetIndex = (targetRow - originRow) * this->columns;
+        for (int i = originRow * this->columns; i < lastIndex; ++i) {
+            int j = i + offsetIndex;
+            double originValue = this->array[j];
+            this->array[j] = this->array[i];
+            this->array[i] = originValue;
+        }
+    }
 
     /**
      * Add one row to other multiplied by a value for current matrix
@@ -123,16 +366,40 @@ public:
      * @param targetRow Row where we add first row
      * @param multiplier The multiplier
      */
-    void mutate(int originRow, int targetRow, double multiplier);
+    void mutate(int originRow, int targetRow, T multiplier) {
+        this->requireRow(originRow);
+        this->requireRow(targetRow);
+
+        int lastIndex = this->columns * (targetRow + 1);
+        int offsetIndex = (originRow - targetRow) * this->columns;
+        for (int i = targetRow * this->columns; i < lastIndex; ++i) {
+            this->array[i] += multiplier * this->array[i + offsetIndex];
+        }
+    }
 
     /**
      * Multiply row in current matrix
      * @param row Row to be multiplier
      * @param multiplier The multiplier
      */
-    void mutate(int row, double multiplier);
+    void mutate(int row, T multiplier) {
+        this->requireRow(row);
 
-    [[nodiscard]] Matrix transposed() const;
+        int lastIndex = this->columns * (row + 1);
+        for (int i = row * this->columns; i < lastIndex; ++i) {
+            this->array[i] *= multiplier;
+        }
+    }
+
+    [[nodiscard]] Matrix<T> transposed() const {
+        Matrix<T> matrix(this->columns, this->getRows()); // NOLINT
+        for (int i = 0; i < this->columns; ++i) {
+            for (int j = 0; j < matrix.columns; ++j) {
+                matrix.setValue(i, j, this->getValue(j, i));
+            }
+        }
+        return matrix;
+    }
 };
 
 #endif //INC_23_HOME_1_MATRIX_H

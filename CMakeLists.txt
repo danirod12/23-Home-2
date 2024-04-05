@@ -3,4 +3,4 @@ project(23-Home-2)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(23-Home-2 Matrix.h Matrix.cpp Test.cpp)
+add_executable(23-Home-2 Matrix.h Test.cpp)
