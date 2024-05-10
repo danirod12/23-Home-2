@@ -1,0 +1,7 @@
+# Idea folder (CLion)
+.idea/
+
+# CMake
+cmake-build-*/
+
+examples/out.txt
