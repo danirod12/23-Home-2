@@ -5,11 +5,11 @@
 #include <stdexcept>
 #include <vector>
 
-template <typename T>
+template<typename T>
 class Matrix {
-private:
-    int columns;
-    long size;
+ private:
+    unsigned long columns;
+    unsigned long size;
 
     // We store lines each after each. l - line, c - column [l1c1, l1c2, /* new line elements next */ l2c1, l2c2]
     T *array;
@@ -32,15 +32,15 @@ private:
         }
     }
 
-public:
-    Matrix(int rows, int columns) {
+ public:
+    Matrix(unsigned long rows, unsigned long columns) {
         this->array = new T[rows * columns];
         this->columns = columns;
         this->size = columns * rows;
 
         // reset memory after malloc
         for (int i = 0; i < size; ++i) {
-            this->array[i] = (T) 0;
+            this->array[i] = T();
         }
     }
 
@@ -49,6 +49,18 @@ public:
         this->array = deserialized.array;
         this->columns = deserialized.columns;
         this->size = deserialized.size;
+    }
+
+    // Copy constructor
+    Matrix(const Matrix<T> &other) : columns(other.columns), size(other.size), array(new T[other.size]) {
+        std::copy(other.array, other.array + other.size, array);
+    }
+
+    // Move constructor
+    Matrix(Matrix<T> &&other) noexcept: columns(other.columns), size(other.size), array(other.array) {
+        other.array = nullptr;
+        other.size = 0;
+        other.columns = 0;
     }
 
     ~Matrix() {
@@ -114,11 +126,11 @@ public:
         return this->size;
     }
 
-    [[nodiscard]] int getInternalIndex(int row, int column) const {
+    [[nodiscard]] unsigned long getInternalIndex(int row, int column) const {
         this->requireColumn(column);
         this->requireRow(row);
 
-        return row * this->columns + column;
+        return ((unsigned long) row) * this->columns + column;
     }
 
     /**
@@ -218,9 +230,9 @@ public:
         } else {
             T value;
             for (int i = 0; i < this->columns; ++i) {
-                if (this->array[i] != 0) {
-                    T middle = (i % 2 == 0 ? 1 : -1)
-                            * this->array[i] * this->getMinor(0, i).getDeterminant();
+                if (this->array[i] != T()) {
+                    T middle = this->array[i] * this->getMinor(0, i).getDeterminant()
+                               * (i % 2 == 0 ? 1 : -1);
                     if (i == 0) {
                         value = middle;
                     } else {
@@ -238,8 +250,8 @@ public:
      * @throws invalid_argument if matrix determinant is zero
      */
     Matrix<T> getInverted() const {
-        double determinant = this->getDeterminant();
-        if (determinant == 0) {
+        T determinant = this->getDeterminant();
+        if (determinant == T()) {
             throw std::invalid_argument("Matrix cannot be inverted");
         }
 
@@ -247,8 +259,8 @@ public:
         Matrix<T> additions(rows, this->columns);
         for (int i = 0; i < rows; ++i) {
             for (int j = 0; j < additions.columns; ++j) {
-                additions.setValue(i, j, ((i + j) % 2 == 0 ? 1 : -1)
-                                         * this->getMinor(i, j).getDeterminant());
+                additions.setValue(i, j, this->getMinor(i, j).getDeterminant()
+                                         * ((i + j) % 2 == 0 ? 1 : -1));
             }
         }
         return additions.transposed() / determinant;

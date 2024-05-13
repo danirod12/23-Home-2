@@ -1,5 +1,6 @@
 #include <iostream>
 #include "Matrix.h"
+#include "LetterMath.hpp"
 
 // uncomment to disable assert()
 // #define NDEBUG
@@ -104,4 +105,12 @@ int main() {
     std::ofstream out("./../examples/out.txt");
     out << std::setprecision(20) << matrix4;
     out.close();
+
+    // custom data test
+    Matrix<LetterMath> mat(3, 3);
+    for (int i = 0; i < 9; ++i) {
+        mat.setValue(i, {"c" + std::to_string(i + 1)});
+    }
+
+    std::cout << mat.getInverted();
 }
